@@ -25,4 +25,5 @@ This is Phase 1 of my journey to become a Computational Neurosurgeon. My goal is
 3. Run tests using the Python `unittest` module.
 
 ## Future Work (Phase 2)
-Phase 1 (Computational Biology Core) is complete. Phase 2 is currently underway: "Training a neural network to predict 1D heat conduction (\(Q = k \cdot A \cdot \Delta T / L\)) with < 1% error." This will serve as a software pipeline test for physics-informed AI.
+Phase 1 (Computational Biology Core) is complete. Phase 2 is currently underway: "Training a neural network to predict 1D heat conduction (\(Q = k * A * Delta T/L) with < 1% error." This will serve as a software pipeline test for physics-informed AI.
+ 
