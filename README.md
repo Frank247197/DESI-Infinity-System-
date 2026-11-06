@@ -17,3 +17,12 @@ The system includes a robust automated validation suite (`unittest`) to ensure d
 This is Phase 1 of my journey to become a Computational Neurosurgeon. My goal is to bridge the gap between computational biology, AI, and robotic surgery. 
 
 *Disclaimer: This software is strictly for computational research and educational purposes.*
+
+
+## How to Run
+1. Open your terminal in the project folder.
+2. Run `python desi_master_core.py` to execute the main demonstration.
+3. Run tests using the Python `unittest` module.
+
+## Future Work (Phase 2)
+Phase 1 (Computational Biology Core) is complete. Phase 2 is currently underway: "Training a neural network to predict 1D heat conduction (\(Q = k \cdot A \cdot \Delta T / L\)) with < 1% error." This will serve as a software pipeline test for physics-informed AI.
