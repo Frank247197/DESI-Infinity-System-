@@ -3,7 +3,8 @@
 **Designed and Developed by Franklin Obunezi**
 ## 🧠 AI Physics Simulation (Phase 2)
 To prove the data pipeline and machine learning capabilities, I built a neural network to predict 1D steady-state heat conduction (Q = k * A * Delta T / L).
-
+### Visual Verification
+![AI vs Physics](ai_verification_plot.png)
 *   **Data Generation:** 10,000 points generated using `generate_heat_data.py`.
 *   **AI Architecture:** A 3-layer Multi-Layer Perceptron (MLP) built with PyTorch.
 *   **Verification:** The model predicts the physics equation with a max relative error of **0.14%**, passing the < 1% error threshold.
