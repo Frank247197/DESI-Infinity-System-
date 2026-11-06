@@ -1,7 +1,23 @@
 # DESI∞ Infinity System 6.0 - Advanced Master Core
 
 **Designed and Developed by Franklin Obunezi**
+## 🧠 AI Physics Simulation (Phase 2)
+To prove the data pipeline and machine learning capabilities, I built a neural network to predict 1D steady-state heat conduction (Q = k * A * Delta T / L).
 
+*   **Data Generation:** 10,000 points generated using `generate_heat_data.py`.
+*   **AI Architecture:** A 3-layer Multi-Layer Perceptron (MLP) built with PyTorch.
+*   **Verification:** The model predicts the physics equation with a max relative error of **0.14%**, passing the < 1% error threshold.
+
+**Terminal Output Proof:**
+```text
+========================================
+AI EVALUATION RESULTS
+========================================
+Max Relative Error: 0.14%
+Mean Relative Error: 0.05%
+Max Absolute Error: 18.32 W
+
+✅ PASS: The AI is accurate to within 1%!
 This repository contains the foundational software architecture for the DESI∞ Infinity System, a conceptual autonomous medical pod. 
 
 Built entirely using the Python Standard Library, this Master Core simulates:
