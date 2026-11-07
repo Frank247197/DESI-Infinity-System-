@@ -1,3 +1,4 @@
+import pandas as pd
 import numpy as np
 import torch
 import torch.nn as nn
@@ -5,80 +6,81 @@ import torch.optim as optim
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-# 1. Generate Data (Stefan-Boltzmann Law: Q = eps * sigma * A * T^4)
-print("Generating radiation dataset...")
-np.random.seed(42)
-n_samples = 10000
-epsilon = np.random.uniform(0.1, 1.0, n_samples)
-area = np.random.uniform(0.1, 10.0, n_samples)
-temp = np.random.uniform(300, 1000, n_samples) # Kelvin
-sigma = 5.67e-8
+print("Loading radiation dataset...")
+data = pd.read_csv("radiation_data.csv")
 
-Q = epsilon * sigma * area * (temp**4)
-X = np.column_stack((epsilon, area, temp))
-y = Q.reshape(-1, 1)
+# 4 Inputs: epsilon, A, T_hot, T_cold
+X = data[["emissivity", "A_m2", "T_hot_K", "T_cold_K"]].values
+y = data[["Q_W"]].values
 
-# 2. Split and Scale
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.10, random_state=42)
+
 scaler_X = StandardScaler()
 scaler_y = StandardScaler()
+
+# --- THE FIX: Log-transform the target variable BEFORE scaling ---
+y_train_log = np.log1p(y_train)
+y_test_log = np.log1p(y_test)
+
 X_train_scaled = scaler_X.fit_transform(X_train)
 X_test_scaled = scaler_X.transform(X_test)
-y_train_scaled = scaler_y.fit_transform(y_train)
-y_test_scaled = scaler_y.transform(y_test)
 
-# Convert to Tensors
-X_train_t = torch.FloatTensor(X_train_scaled)
-y_train_t = torch.FloatTensor(y_train_scaled)
-X_test_t = torch.FloatTensor(X_test_scaled)
+# Scale the log-transformed targets
+y_train_scaled = scaler_y.fit_transform(y_train_log)
+y_test_scaled = scaler_y.transform(y_test_log) 
 
-# 3. Define Model
+X_train_tensor = torch.FloatTensor(X_train_scaled)
+y_train_tensor = torch.FloatTensor(y_train_scaled)
+X_test_tensor = torch.FloatTensor(X_test_scaled)
+
 class RadiationAI(nn.Module):
     def __init__(self):
         super(RadiationAI, self).__init__()
         self.network = nn.Sequential(
-            nn.Linear(3, 64),
+            nn.Linear(4, 128), # Increased capacity for non-linear T^4 learning
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(128, 128),
             nn.ReLU(),
-            nn.Linear(64, 1)
+            nn.Linear(128, 1)
         )
     def forward(self, x):
         return self.network(x)
 
 model = RadiationAI()
 criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=0.01)
+optimizer = optim.Adam(model.parameters(), lr=0.005) # Slightly lower learning rate
 
-# 4. Train
 print("Training the Radiation AI...")
-for epoch in range(1000):
+for epoch in range(1500): 
     optimizer.zero_grad()
-    outputs = model(X_train_t)
-    loss = criterion(outputs, y_train_t)
+    outputs = model(X_train_tensor)
+    loss = criterion(outputs, y_train_tensor)
     loss.backward()
     optimizer.step()
-    if (epoch+1) % 200 == 0:
-        print(f"Epoch {epoch+1}/1000 | Loss: {loss.item():.6f}")
+    
+    if (epoch+1) % 300 == 0:
+        print(f"Epoch {epoch+1}/1500 | Loss: {loss.item():.6f}")
 
-# 5. Evaluate
 model.eval()
 with torch.no_grad():
-    predictions_scaled = model(X_test_t).numpy()
-    predictions = scaler_y.inverse_transform(predictions_scaled)
-    actual = scaler_y.inverse_transform(y_test_scaled)
-
+    predictions_scaled = model(X_test_tensor)
+    
+    # --- THE FIX: Reverse the scaling and reverse the log-transform ---
+    predictions_log = scaler_y.inverse_transform(predictions_scaled.numpy())
+    predictions = np.expm1(predictions_log) # This reverses np.log1p()
+    
+actual = y_test
 absolute_errors = np.abs(predictions - actual)
-# Avoid division by zero for relative error
-relative_errors = absolute_errors / np.where(actual == 0, 1e-9, actual)
-max_rel_error = np.max(relative_errors) * 100
+relative_errors = (absolute_errors / actual) * 100
 
 print("\n" + "="*40)
 print("RADIATION AI EVALUATION RESULTS")
 print("="*40)
-print(f"Max Relative Error: {max_rel_error:.2f}%")
+print(f"Max Relative Error: {np.max(relative_errors):.4f}%")
+print(f"Mean Relative Error: {np.mean(relative_errors):.4f}%")
+print(f"Max Absolute Error: {np.max(absolute_errors):.4f} W")
 
-if max_rel_error < 1.0:
+if np.max(relative_errors) < 1.0:
     print("\n✅ PASS: Radiation AI is accurate to within 1%!")
 else:
     print("\n❌ FAIL: Needs tuning.")
