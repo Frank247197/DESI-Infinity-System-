@@ -1,7 +1,14 @@
 # DESI∞ Infinity System 6.0 - Advanced Master Core
 
 **Designed and Developed by Franklin Obunezi**
+## 🏗️ Version 6.1 Architecture (In Progress)
+The DESI∞ system is transitioning to a modular, production-grade architecture:
+* **`research/`**: Scientific validation and data provenance (SHA-256 hashing).
+* **`integration/`**: Central module coordination.
+* **`genomics/`, `proteomics/`, etc.**: Decoupled domain-specific engines.
 
+### 🔬 Scientific Integrity
+This project prioritizes reproducibility and data integrity. All core datasets are cryptographically hashed to ensure provenance. Automated GitHub Actions CI/CD pipelines run unit tests on every push.
 ## 🧠 AI Physics Simulation (Phase 2)
 
 To prove the data pipeline and machine learning capabilities, I built a neural network to predict 1D steady-state heat conduction (Q = k * A * Delta T / L).
