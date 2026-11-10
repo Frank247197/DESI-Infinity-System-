@@ -1,96 +1,69 @@
 # ============================================================
-# DESI∞ INFINITY SYSTEM 6.1 - PHYSICS & ENERGY MODULE
-# Computational Physics, Thermodynamics & ARC Fusion Research
+# DESI∞ INFINITY SYSTEM 6.1 - NEURAL HEART MODULE
+# Computational Cardiovascular Research
 # ============================================================
 
-class PhysicsEnergy:
+class NeuralHeart:
     def __init__(self):
-        self.name = "PHYSICS_ENERGY"
+        self.name = "NEURAL_HEART"
         self.version = "6.1"
-        # Stefan-Boltzmann constant (W/m^2*K^4)
-        self.sigma = 5.670374419e-8
 
-    def calculate_thermal_radiation(self, emissivity, area_m2, temp_hot_k, temp_cold_k):
-        """
-        Calculates radiative heat transfer using the Stefan-Boltzmann Law:
-        Q = epsilon * sigma * A * (T_hot^4 - T_cold^4)
-        """
-        if not (0 <= emissivity <= 1):
-            raise ValueError("Emissivity must be between 0 and 1.")
-        if area_m2 <= 0:
-            raise ValueError("Area must be positive.")
-        if temp_hot_k <= temp_cold_k:
-            raise ValueError("Hot temperature must be greater than cold temperature.")
+    def assess_signal_quality(self, samples, flatline_threshold=1e-5):
+        if not samples or not isinstance(samples, (list, tuple)):
+            raise ValueError("Samples must be a non-empty list or tuple.")
         
-        Q = emissivity * self.sigma * area_m2 * ((temp_hot_k ** 4) - (temp_cold_k ** 4))
-        return Q
+        # NEW: Input validation (Added here as requested by reviewer)
+        if not all(isinstance(x, (int, float)) for x in samples):
+            raise TypeError("All samples must be numeric.")
 
-    def arc_fusion_zone_simulation(self, input_energy_mw, plasma_efficiency):
-        """
-        Theoretical ARC Fusion Zone Simulation.
-        Calculates net energy output based on input energy and plasma efficiency.
-        Note: This is a mathematical simulation, not a functioning reactor.
-        """
-        if input_energy_mw <= 0:
-            raise ValueError("Input energy must be positive.")
-        if not (0 < plasma_efficiency <= 1):
-            raise ValueError("Plasma efficiency must be between 0 and 1.")
-        
-        # Theoretical gross output
-        gross_output_mw = input_energy_mw * plasma_efficiency
-        
-        # Net output (Gross - Input)
-        net_output_mw = gross_output_mw - input_energy_mw
-        
-        # Mathematical stability check (simulated)
-        stable = gross_output_mw > input_energy_mw
-        
+        min_val = min(samples)
+        max_val = max(samples)
+        span = max_val - min_val
+
+        if span < flatline_threshold:
+            return {
+                "status": "WARNING_FLATLINE",
+                "message": "Signal appears disconnected or flat.",
+                "span": span
+            }
+
+        mean_val = sum(samples) / len(samples)
         return {
-            "input_energy_mw": input_energy_mw,
-            "plasma_efficiency": plasma_efficiency,
-            "gross_output_mw": round(gross_output_mw, 2),
-            "net_output_mw": round(net_output_mw, 2),
-            "simulated_stable": stable,
-            "status": "SIMULATION_ONLY"
+            "status": "VALID",
+            "message": "Signal quality acceptable.",
+            "mean": round(mean_val, 4),
+            "min": min_val,
+            "max": max_val
         }
 
-    def calculate_cryogenic_heat_leak(self, emissivity, area_m2, temp_ambient_k, temp_cryo_k):
-        """
-        Calculates thermal radiation leaking into a cryogenic system.
-        """
-        if temp_ambient_k <= temp_cryo_k:
-            raise ValueError("Ambient temperature must be warmer than cryo temperature.")
-        if area_m2 <= 0:
-            raise ValueError("Area must be positive.")
+    def estimate_heart_rate(self, peak_indices, sampling_rate_hz):
+        if sampling_rate_hz <= 0:
+            raise ValueError("Sampling rate must be positive.")
+        if len(peak_indices) < 2:
+            raise ValueError("At least two peaks are required to calculate a heart rate.")
+        
+        if not all(isinstance(x, int) for x in peak_indices):
+            raise TypeError("Peak indices must be integers.")
 
-        Q_leak = emissivity * self.sigma * area_m2 * ((temp_ambient_k ** 4) - (temp_cryo_k ** 4))
-        return Q_leak
+        intervals_samples = []
+        for i in range(len(peak_indices) - 1):
+            interval = peak_indices[i+1] - peak_indices[i]
+            intervals_samples.append(interval)
+            
+        intervals_seconds = [s / sampling_rate_hz for s in intervals_samples]
+        avg_interval = sum(intervals_seconds) / len(intervals_seconds)
+        bpm = 60.0 / avg_interval
+        
+        return {
+            "bpm": round(bpm, 1),
+            "avg_rr_interval_sec": round(avg_interval, 3),
+            "total_beats_analyzed": len(peak_indices)
+        }
 
-# ============================================================
-# DEMONSTRATION
-# ============================================================
-if __name__ == "__main__":
-    physics = PhysicsEnergy()
-    print("="*50)
-    print(f"DESI∞ {physics.name} v{physics.version} Initialized")
-    print("="*50)
-    
-    # 1. Stefan-Boltzmann Radiation
-    print("\n[1] Thermal Radiation (Stefan-Boltzmann):")
-    radiation = physics.calculate_thermal_radiation(0.9, 2.0, 400.0, 300.0)
-    print(f"  Radiated Heat Transfer: {radiation:.2f} Watts")
-
-    # 2. ARC Fusion Zone Simulation
-    print("\n[2] ARC Fusion Zone Simulation:")
-    # FIXED: Changed efficiency from 1.2 (120%) to 0.85 (85%)
-    fusion = physics.arc_fusion_zone_simulation(input_energy_mw=50, plasma_efficiency=0.85)
-    print(f"  Input: {fusion['input_energy_mw']} MW")
-    print(f"  Gross Output: {fusion['gross_output_mw']} MW")
-    print(f"  Net Output: {fusion['net_output_mw']} MW")
-    print(f"  Simulated Stable: {fusion['simulated_stable']}")
-    print(f"  Status: {fusion['status']}")
-
-    # 3. Cryogenic Heat Leak
-    print("\n[3] Cryogenic Heat Leak (Vacuum Insulation):")
-    leak = physics.calculate_cryogenic_heat_leak(0.05, 10.0, 293.0, 20.0)
-    print(f"  Heat Leak into Cryo System: {leak:.2f} Watts")
+    def check_heart_rate_safety(self, bpm):
+        if bpm < 60:
+            return {"status": "BRADYCARDIA_WARNING", "message": "Heart rate is below 60 BPM."}
+        elif bpm > 100:
+            return {"status": "TACHYCARDIA_WARNING", "message": "Heart rate is above 100 BPM."}
+        else:
+            return {"status": "NORMAL", "message": "Heart rate is within normal resting bounds."}
