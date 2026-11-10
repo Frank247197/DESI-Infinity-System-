@@ -77,13 +77,13 @@ if __name__ == "__main__":
     
     # 1. Stefan-Boltzmann Radiation
     print("\n[1] Thermal Radiation (Stefan-Boltzmann):")
-    # Emissivity 0.9 (black body), Area 2 m^2, Hot 400K, Cold 300K
     radiation = physics.calculate_thermal_radiation(0.9, 2.0, 400.0, 300.0)
     print(f"  Radiated Heat Transfer: {radiation:.2f} Watts")
 
     # 2. ARC Fusion Zone Simulation
     print("\n[2] ARC Fusion Zone Simulation:")
-    fusion = physics.arc_fusion_zone_simulation(input_energy_mw=50, plasma_efficiency=1.2)
+    # FIXED: Changed efficiency from 1.2 (120%) to 0.85 (85%)
+    fusion = physics.arc_fusion_zone_simulation(input_energy_mw=50, plasma_efficiency=0.85)
     print(f"  Input: {fusion['input_energy_mw']} MW")
     print(f"  Gross Output: {fusion['gross_output_mw']} MW")
     print(f"  Net Output: {fusion['net_output_mw']} MW")
