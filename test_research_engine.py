@@ -5,7 +5,10 @@ import os
 # Add the root directory to path so we can import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from research.provenance import generate_data_hash, verify_data_hash
+from provenance import (
+    generate_data_hash,
+    verify_data_hash,
+)
 
 class TestResearchEngines(unittest.TestCase):
     def test_data_integrity(self):
@@ -21,3 +24,4 @@ class TestResearchEngines(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
