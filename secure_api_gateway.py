@@ -1,6 +1,6 @@
 # ============================================================
 # DESI∞ INFINITY SYSTEM 6.2.0 - SECURE API GATEWAY
-# Authentication, Rate Limiting & Role-Based Access Enforcement
+# Sandbox Token Dispatch with Explicit Production Separation Warnings
 # ============================================================
 
 from typing import Dict, Any
@@ -8,27 +8,32 @@ from typing import Dict, Any
 class SecureAPIGateway:
     """
     [CALC] Enforces API request authentication, token validation, 
-    rate limiting, and role-based permissions before endpoint dispatch.
+    and role-based permission checks within sandbox research environments.
     """
     def __init__(self):
-        self.mock_tokens = {
-            "token_admin_secret": {"user": "admin_frank", "role": "ADMIN"},
-            "token_research_key": {"user": "researcher_1", "role": "RESEARCHER"}
+        # NOTICE: Sandbox credentials for local research deployment only.
+        self.sandbox_tokens = {
+            "sandbox_admin_key_2026": {"user": "admin_frank", "role": "ADMIN"}
         }
 
     def authorize_request(self, auth_token: str, required_role: str) -> Dict[str, Any]:
-        if auth_token not in self.mock_tokens:
-            return {"authorized": False, "error": "Invalid or expired authentication token."}
+        if auth_token not in self.sandbox_tokens:
+            return {"authorized": False, "error": "Invalid token or unauthorized sandbox access."}
 
-        user_info = self.mock_tokens[auth_token]
-        user_role = user_info["role"]
-
+        user_info = self.sandbox_tokens[auth_token]
         role_hierarchy = {"VIEWER": 1, "RESEARCHER": 2, "ADMIN": 3}
-        if role_hierarchy.get(user_role, 0) < role_hierarchy.get(required_role, 0):
-            return {"authorized": False, "error": f"Permission denied for role '{user_role}'."}
+        
+        if role_hierarchy.get(user_info["role"], 0) < role_hierarchy.get(required_role, 0):
+            return {"authorized": False, "error": "Insufficient privileges."}
 
-        return {"authorized": True, "user": user_info["user"], "role": user_role}
+        return {
+            "authorized": True,
+            "user": user_info["user"],
+            "environment": "SANDBOX_RESEARCH_ONLY",
+            "warning": "Do not use sandbox credentials in production clinical networks."
+        }
 
 if __name__ == "__main__":
     gw = SecureAPIGateway()
-    print("Gateway Auth Test:", gw.authorize_request("token_research_key", "ADMIN"))
+    print("Gateway Test:", gw.authorize_request("sandbox_admin_key_2026", "ADMIN"))
+
