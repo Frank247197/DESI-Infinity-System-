@@ -1,82 +1,55 @@
 # ============================================================
 # DESI∞ INFINITY SYSTEM 6.2.0 - PERSISTENT RESEARCH DATABASE
-# Durable SQLite Storage for Experiments, Checkpoints & Provenance
+# SQLite Experiment Store with Collision Prevention & Record Preservation
 # ============================================================
 
 import sqlite3
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 class ResearchDatabase:
     """
-    [CALC] Persistent SQLite repository storing experiment fingerprints,
-    simulation results, and audit provenance logs securely on disk.
+    [CALC] Manages persistent SQLite storage for experiment runs, ensuring 
+    historical experiment records are never silently overwritten.
     """
     def __init__(self, db_path: str = "desi_research.db"):
         self.db_path = db_path
-        self._init_db()
+        self._initialize_db()
 
-    def _init_db(self) -> None:
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS experiments (
-                    experiment_id TEXT PRIMARY KEY,
-                    experiment_name TEXT,
-                    system_version TEXT,
-                    module_name TEXT,
-                    parameters TEXT,
-                    outputs TEXT,
-                    timestamp_utc TEXT
-                )
-            """)
-            conn.commit()
+    def _initialize_db(self) -> None:
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS experiments (
+                run_id TEXT PRIMARY KEY,
+                timestamp TEXT,
+                metrics TEXT
+            )
+        """)
+        conn.commit()
+        conn.close()
 
-    def save_experiment(self, record: Dict[str, Any]) -> None:
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                INSERT OR REPLACE INTO experiments 
-                (experiment_id, experiment_name, system_version, module_name, parameters, outputs, timestamp_utc)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                record["experiment_id"],
-                record["experiment_name"],
-                record["system_version"],
-                record["module_name"],
-                json.dumps(record["parameters"]),
-                json.dumps(record["outputs"]),
-                record["timestamp_utc"]
-            ))
-            conn.commit()
+    def log_experiment(self, run_id: str, timestamp: str, metrics: Dict[str, Any]) -> Dict[str, Any]:
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        # Check for existing record collision to preserve history
+        cursor.execute("SELECT run_id FROM experiments WHERE run_id = ?", (run_id,))
+        if cursor.fetchone():
+            conn.close()
+            raise ValueError(f"Collision error: Experiment run_id '{run_id}' already exists in database. Records are immutable.")
 
-    def get_experiment(self, experiment_id: str) -> Dict[str, Any]:
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM experiments WHERE experiment_id = ?", (experiment_id,))
-            row = cursor.fetchone()
-            if not row:
-                raise KeyError(f"Experiment ID '{experiment_id}' not found in database.")
-            return {
-                "experiment_id": row[0],
-                "experiment_name": row[1],
-                "system_version": row[2],
-                "module_name": row[3],
-                "parameters": json.loads(row[4]),
-                "outputs": json.loads(row[5]),
-                "timestamp_utc": row[6]
-            }
+        metrics_json = json.dumps(metrics)
+        cursor.execute("INSERT INTO experiments (run_id, timestamp, metrics) VALUES (?, ?, ?)", 
+                       (run_id, timestamp, metrics_json))
+        conn.commit()
+        conn.close()
+        return {"run_id": run_id, "status": "EXPERIMENT_LOGGED_SUCCESS"}
 
 if __name__ == "__main__":
-    db = ResearchDatabase("test_desi.db")
-    sample_rec = {
-        "experiment_id": "exp_abc12345",
-        "experiment_name": "Test_Run",
-        "system_version": "6.2.0",
-        "module_name": "langevin_dynamics",
-        "parameters": {"radius": 50.0},
-        "outputs": {"displacement": 1.2e-6},
-        "timestamp_utc": "2026-11-18T20:00:00Z"
-    }
-    db.save_experiment(sample_rec)
-    print("Retrieved from SQLite DB:", db.get_experiment("exp_abc12345")["experiment_name"])
+    db = ResearchDatabase()
+    try:
+        print(db.log_experiment("RUN_2026_001", "2026-11-18T12:00:00Z", {"auroc": 0.95}))
+    except ValueError as e:
+        print("Caught expected collision:", e)
+
