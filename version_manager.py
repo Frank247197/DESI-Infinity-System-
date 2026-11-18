@@ -1,39 +1,34 @@
 # ============================================================
-# DESI∞ INFINITY SYSTEM 6.2.0 - VERSION & COMPATIBILITY MANAGER
-# Authoritative Version Identification & V5.0/V6.0 Compatibility Guard
+# DESI∞ INFINITY SYSTEM 6.2.0 - VERSION COMPATIBILITY MANAGER
+# Active Interface & Contract Verification
 # ============================================================
 
 from typing import Dict, Any, List
 
 class VersionCompatibilityManager:
     """
-    [CALC] Tracks system and individual module versions while enforcing
-    backward compatibility with legacy V5.0 public functions.
+    [CALC] Verifies that runtime module versions meet the strict 
+    compatibility contract required by the Version 6.2.0 master architecture.
     """
-    def __init__(self):
-        self.system_version = "6.2.0"
-        self.supported_legacy_versions = ["5.0.0", "6.0.0", "6.1.0"]
+    def __init__(self, baseline_version: str = "6.2.0"):
+        self.baseline_version = baseline_version
 
-    def verify_compatibility(self, target_version: str) -> Dict[str, Any]:
-        compatible = target_version == self.system_version or target_version in self.supported_legacy_versions
+    def verify_compatibility(self, module_name: str, module_version: str, supported_apis: List[str]) -> Dict[str, Any]:
+        # Enforce major version matching for system integrity
+        base_major = self.baseline_version.split(".")[0]
+        mod_major = module_version.split(".")[0]
+
+        is_compatible = (base_major == mod_major) and len(supported_apis) > 0
+
         return {
-            "current_system_version": self.system_version,
-            "target_version": target_version,
-            "backward_compatible": compatible,
-            "status": "COMPATIBILITY_VERIFIED" if compatible else "VERSION_MISMATCH_ERROR"
+            "module_name": module_name,
+            "module_version": module_version,
+            "baseline_required": self.baseline_version,
+            "compatible": is_compatible,
+            "status": "COMPATIBILITY_VERIFIED" if is_compatible else "VERSION_MISMATCH_ERROR"
         }
 
-    def get_legacy_interface_manifest(self) -> List[str]:
-        return [
-            "validate_dna",
-            "validate_rna",
-            "calculate_gc_content",
-            "simulate_crispr_mutation",
-            "transcribe_dna_to_mrna",
-            "translate_mrna"
-        ]
-
 if __name__ == "__main__":
-    vm = VersionCompatibilityManager()
-    print("Compatibility Check (v5.0.0):", vm.verify_compatibility("5.0.0"))
-    print("Legacy Interfaces Supported:", vm.get_legacy_interface_manifest())
+    vman = VersionCompatibilityManager("6.2.0")
+    print("Verification Check:", vman.verify_compatibility("numerical_engine", "6.2.0", ["estimate_uncertainty"]))
+
