@@ -1,12 +1,24 @@
 # ============================================================
-# DESI∞ INFINITY SYSTEM 6.1 - NEURAL HEART MODULE
+# DESI∞ INFINITY SYSTEM 6.2.0 - NEURAL HEART MODULE
 # Computational Cardiovascular Research
 # ============================================================
+
+import math
+
+try:
+    from version_manifest import SYSTEM_VERSION
+except ImportError:
+    SYSTEM_VERSION = "6.2.0"
+
+
+def _is_real_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
 
 class NeuralHeart:
     def __init__(self):
         self.name = "NEURAL_HEART"
-        self.version = "6.1"
+        self.version = SYSTEM_VERSION
 
     def assess_signal_quality(self, samples, flatline_threshold=1e-5):
         """
@@ -15,9 +27,10 @@ class NeuralHeart:
         """
         if not samples or not isinstance(samples, (list, tuple)):
             raise ValueError("Samples must be a non-empty list or tuple.")
-        
-        if not all(isinstance(x, (int, float)) for x in samples):
-            raise TypeError("All samples must be numeric.")
+        if not _is_real_number(flatline_threshold) or flatline_threshold < 0:
+            raise ValueError("flatline_threshold must be a non-negative finite number.")
+        if not all(_is_real_number(x) for x in samples):
+            raise TypeError("All samples must be finite numeric values.")
 
         min_val = min(samples)
         max_val = max(samples)
@@ -27,7 +40,7 @@ class NeuralHeart:
             return {
                 "status": "WARNING_FLATLINE",
                 "message": "Signal appears disconnected or flat.",
-                "span": span
+                "span": span,
             }
 
         mean_val = sum(samples) / len(samples)
@@ -36,37 +49,43 @@ class NeuralHeart:
             "message": "Signal quality acceptable.",
             "mean": round(mean_val, 4),
             "min": min_val,
-            "max": max_val
+            "max": max_val,
         }
 
     def estimate_heart_rate(self, peak_indices, sampling_rate_hz):
         """
         Estimates heart rate (BPM) from the indices of detected peaks (R-peaks).
         """
-        if sampling_rate_hz <= 0:
+        if not _is_real_number(sampling_rate_hz) or sampling_rate_hz <= 0:
             raise ValueError("Sampling rate must be positive.")
-        if len(peak_indices) < 2:
+        if not isinstance(peak_indices, (list, tuple)) or len(peak_indices) < 2:
             raise ValueError("At least two peaks are required to calculate a heart rate.")
-        
+        if not all(isinstance(idx, int) and not isinstance(idx, bool) and idx >= 0 for idx in peak_indices):
+            raise TypeError("Peak indices must be non-negative integers.")
+
         # Calculate the time intervals between peaks (RR intervals)
         intervals_samples = []
         for i in range(len(peak_indices) - 1):
-            interval = peak_indices[i+1] - peak_indices[i]
+            interval = peak_indices[i + 1] - peak_indices[i]
+            if interval <= 0:
+                raise ValueError("Peak indices must be strictly increasing.")
             intervals_samples.append(interval)
-            
+
         # Convert samples to seconds
         intervals_seconds = [s / sampling_rate_hz for s in intervals_samples]
-        
+
         # Average interval
         avg_interval = sum(intervals_seconds) / len(intervals_seconds)
-        
+        if avg_interval <= 0:
+            raise ValueError("Average RR interval must be positive.")
+
         # Calculate BPM (60 seconds / average interval)
         bpm = 60.0 / avg_interval
-        
+
         return {
             "bpm": round(bpm, 1),
             "avg_rr_interval_sec": round(avg_interval, 3),
-            "total_beats_analyzed": len(peak_indices)
+            "total_beats_analyzed": len(peak_indices),
         }
 
     def check_heart_rate_safety(self, bpm):
@@ -74,6 +93,9 @@ class NeuralHeart:
         Checks if the heart rate falls within normal resting bounds.
         This is an educational simulation, not a medical diagnosis.
         """
+        if not _is_real_number(bpm):
+            raise TypeError("bpm must be a finite numeric value.")
+
         if bpm < 60:
             return {"status": "BRADYCARDIA_WARNING", "message": "Heart rate is below 60 BPM."}
         elif bpm > 100:
@@ -81,21 +103,23 @@ class NeuralHeart:
         else:
             return {"status": "NORMAL", "message": "Heart rate is within normal resting bounds."}
 
+
 # ============================================================
 # DEMONSTRATION
 # ============================================================
+
 if __name__ == "__main__":
     heart = NeuralHeart()
-    print("="*50)
+    print("=" * 50)
     print(f"DESI∞ {heart.name} v{heart.version} Initialized")
-    print("="*50)
-    
+    print("=" * 50)
+
     # 1. Test Signal Quality (Synthetic ECG data)
     print("\n[1] Signal Quality Assessment:")
     # Simulating a flatline (disconnected sensor)
     flatline_signal = [0.0, 0.0, 0.0, 0.0, 0.0]
     print(f"  Flatline Test: {heart.assess_signal_quality(flatline_signal)}")
-    
+
     # Simulating a valid signal
     valid_signal = [0.1, 0.5, 1.2, 0.4, 0.1, 0.6, 1.1, 0.3]
     print(f"  Valid Signal Test: {heart.assess_signal_quality(valid_signal)}")
@@ -108,8 +132,9 @@ if __name__ == "__main__":
     hr_result = heart.estimate_heart_rate(peak_indices, sampling_rate_hz=100)
     print(f"  Peaks: {peak_indices} at 100 Hz")
     print(f"  Result: {hr_result}")
-    
+
     # 3. Test Safety Bounds
     print("\n[3] Safety Assessment:")
     print(f"  Safety Check (40 BPM): {heart.check_heart_rate_safety(40)}")
     print(f"  Safety Check (75 BPM): {heart.check_heart_rate_safety(75)}")
+
