@@ -1,92 +1,140 @@
 # ============================================================
-# DESI∞ INFINITY SYSTEM 6.1 - NANOMEDICINE MODULE
-# Computational Nanotechnology & Molecular Engineering
+# DESI∞ INFINITY SYSTEM 6.2.0 - NEURAL HEART MODULE
+# Computational Cardiovascular Research
 # ============================================================
 
 import math
 
-class Nanomedicine:
+try:
+    from version_manifest import SYSTEM_VERSION
+except ImportError:
+    SYSTEM_VERSION = "6.2.0"
+
+
+def _is_real_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+class NeuralHeart:
     def __init__(self):
-        self.name = "NANOMEDICINE"
-        self.version = "6.1"
-        # Boltzmann constant (J/K)
-        self.k_B = 1.380649e-23
+        self.name = "NEURAL_HEART"
+        self.version = SYSTEM_VERSION
 
-    def calculate_diffusion_coefficient(self, temperature_k, viscosity_pas, radius_m):
+    def assess_signal_quality(self, samples, flatline_threshold=1e-5):
         """
-        Calculates the diffusion coefficient using the Stokes-Einstein equation:
-        D = (k_B * T) / (6 * pi * eta * r)
+        Evaluates the quality of a time-series signal (e.g., ECG).
+        Detects flatlines (disconnected sensors) and returns basic stats.
         """
-        if temperature_k <= 0:
-            raise ValueError("Temperature must be greater than 0 Kelvin.")
-        if viscosity_pas <= 0:
-            raise ValueError("Viscosity must be positive.")
-        if radius_m <= 0:
-            raise ValueError("Particle radius must be positive.")
+        if not samples or not isinstance(samples, (list, tuple)):
+            raise ValueError("Samples must be a non-empty list or tuple.")
+        if not _is_real_number(flatline_threshold) or flatline_threshold < 0:
+            raise ValueError("flatline_threshold must be a non-negative finite number.")
+        if not all(_is_real_number(x) for x in samples):
+            raise TypeError("All samples must be finite numeric values.")
 
-        D = (self.k_B * temperature_k) / (6 * math.pi * viscosity_pas * radius_m)
-        return D
+        min_val = min(samples)
+        max_val = max(samples)
+        span = max_val - min_val
 
-    def estimate_diffusion_time(self, distance_m, diffusion_coefficient):
-        """
-        Estimates the time required for a particle to diffuse across a distance.
-        Using 3D diffusion relation: t = L^2 / (6 * D)
-        """
-        if distance_m <= 0:
-            raise ValueError("Distance must be positive.")
-        if diffusion_coefficient <= 0:
-            raise ValueError("Diffusion coefficient must be positive.")
+        if span < flatline_threshold:
+            return {
+                "status": "WARNING_FLATLINE",
+                "message": "Signal appears disconnected or flat.",
+                "span": span,
+            }
 
-        time_seconds = (distance_m ** 2) / (6 * diffusion_coefficient)
-        return time_seconds
-
-    def convert_concentration_to_molar(self, value, unit):
-        """
-        Converts molar concentration units (M, mM, uM, nM) into standard Molar (M).
-        """
-        factors = {
-            "M": 1.0,
-            "mM": 1e-3,
-            "uM": 1e-6,
-            "nM": 1e-9
+        mean_val = sum(samples) / len(samples)
+        return {
+            "status": "VALID",
+            "message": "Signal quality acceptable.",
+            "mean": round(mean_val, 4),
+            "min": min_val,
+            "max": max_val,
         }
-        if unit not in factors:
-            raise ValueError(f"Unsupported concentration unit: {unit}")
-        if value < 0:
-            raise ValueError("Concentration cannot be negative.")
-        
-        molar_value = value * factors[unit]
-        return round(molar_value, 9)
+
+    def estimate_heart_rate(self, peak_indices, sampling_rate_hz):
+        """
+        Estimates heart rate (BPM) from the indices of detected peaks (R-peaks).
+        """
+        if not _is_real_number(sampling_rate_hz) or sampling_rate_hz <= 0:
+            raise ValueError("Sampling rate must be positive.")
+        if not isinstance(peak_indices, (list, tuple)) or len(peak_indices) < 2:
+            raise ValueError("At least two peaks are required to calculate a heart rate.")
+        if not all(isinstance(idx, int) and not isinstance(idx, bool) and idx >= 0 for idx in peak_indices):
+            raise TypeError("Peak indices must be non-negative integers.")
+
+        # Calculate the time intervals between peaks (RR intervals)
+        intervals_samples = []
+        for i in range(len(peak_indices) - 1):
+            interval = peak_indices[i + 1] - peak_indices[i]
+            if interval <= 0:
+                raise ValueError("Peak indices must be strictly increasing.")
+            intervals_samples.append(interval)
+
+        # Convert samples to seconds
+        intervals_seconds = [s / sampling_rate_hz for s in intervals_samples]
+
+        # Average interval
+        avg_interval = sum(intervals_seconds) / len(intervals_seconds)
+        if avg_interval <= 0:
+            raise ValueError("Average RR interval must be positive.")
+
+        # Calculate BPM (60 seconds / average interval)
+        bpm = 60.0 / avg_interval
+
+        return {
+            "bpm": round(bpm, 1),
+            "avg_rr_interval_sec": round(avg_interval, 3),
+            "total_beats_analyzed": len(peak_indices),
+        }
+
+    def check_heart_rate_safety(self, bpm):
+        """
+        Checks if the heart rate falls within normal resting bounds.
+        This is an educational simulation, not a medical diagnosis.
+        """
+        if not _is_real_number(bpm):
+            raise TypeError("bpm must be a finite numeric value.")
+
+        if bpm < 60:
+            return {"status": "BRADYCARDIA_WARNING", "message": "Heart rate is below 60 BPM."}
+        elif bpm > 100:
+            return {"status": "TACHYCARDIA_WARNING", "message": "Heart rate is above 100 BPM."}
+        else:
+            return {"status": "NORMAL", "message": "Heart rate is within normal resting bounds."}
+
 
 # ============================================================
 # DEMONSTRATION
 # ============================================================
+
 if __name__ == "__main__":
-    nano = Nanomedicine()
-    print("="*50)
-    print(f"DESI∞ {nano.name} v{nano.version} Initialized")
-    print("="*50)
-    
-    # 1. Nanoparticle Diffusion
-    print("\n[1] Stokes-Einstein Diffusion Model:")
-    temp = 310.15      # Body temp in Kelvin (37 C)
-    viscosity = 0.0007 # Blood plasma viscosity (Pa·s)
-    radius = 5e-9      # 10 nm diameter particle (5 nm radius)
-    
-    D = nano.calculate_diffusion_coefficient(temp, viscosity, radius)
-    print(f"  Temperature: {temp} K")
-    print(f"  Particle Radius: {radius} m (10 nm)")
-    print(f"  Diffusion Coefficient (D): {D:.4e} m^2/s")
+    heart = NeuralHeart()
+    print("=" * 50)
+    print(f"DESI∞ {heart.name} v{heart.version} Initialized")
+    print("=" * 50)
 
-    # 2. Diffusion Time
-    print("\n[2] Diffusion Time Estimate:")
-    distance = 0.01 # 1 centimeter
-    time_sec = nano.estimate_diffusion_time(distance, D)
-    days = time_sec / (60 * 60 * 24)
-    print(f"  Time to travel 1 cm: {time_sec:.2f} seconds")
-    print(f"  Equivalent to: {days:.2f} days")
+    # 1. Test Signal Quality (Synthetic ECG data)
+    print("\n[1] Signal Quality Assessment:")
+    # Simulating a flatline (disconnected sensor)
+    flatline_signal = [0.0, 0.0, 0.0, 0.0, 0.0]
+    print(f"  Flatline Test: {heart.assess_signal_quality(flatline_signal)}")
 
-    # 3. Concentration Conversion
-    print("\n[3] Concentration Conversion:")
-    print(f"  5 mM -> {nano.convert_concentration_to_molar(5, 'mM')} M")
-    print(f"  250 nM -> {nano.convert_concentration_to_molar(250, 'nM')} M")
+    # Simulating a valid signal
+    valid_signal = [0.1, 0.5, 1.2, 0.4, 0.1, 0.6, 1.1, 0.3]
+    print(f"  Valid Signal Test: {heart.assess_signal_quality(valid_signal)}")
+
+    # 2. Test Heart Rate Estimation
+    print("\n[2] Heart Rate Estimation:")
+    # Simulating peaks detected at sample index 100, 250, 400, 550 (at 100 Hz)
+    # The intervals are 150 samples (1.5 seconds) -> 40 BPM
+    peak_indices = [100, 250, 400, 550]
+    hr_result = heart.estimate_heart_rate(peak_indices, sampling_rate_hz=100)
+    print(f"  Peaks: {peak_indices} at 100 Hz")
+    print(f"  Result: {hr_result}")
+
+    # 3. Test Safety Bounds
+    print("\n[3] Safety Assessment:")
+    print(f"  Safety Check (40 BPM): {heart.check_heart_rate_safety(40)}")
+    print(f"  Safety Check (75 BPM): {heart.check_heart_rate_safety(75)}")
+
