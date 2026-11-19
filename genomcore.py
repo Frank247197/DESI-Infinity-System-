@@ -1,12 +1,19 @@
+
 # ============================================================
-# DESI∞ INFINITY SYSTEM 6.1 - GENOMCORE MODULE
+# DESI∞ INFINITY SYSTEM 6.2.0 - GENOMCORE MODULE
 # Computational Genomics & Molecular Biology
 # ============================================================
+
+try:
+    from version_manifest import SYSTEM_VERSION
+except ImportError:
+    SYSTEM_VERSION = "6.2.0"
+
 
 class GenomCore:
     def __init__(self):
         self.name = "GENOMCORE"
-        self.version = "6.1"
+        self.version = SYSTEM_VERSION
         self.dna_bases = set("ATCG")
         self.rna_bases = set("AUCG")
         self.codon_table = {
@@ -29,15 +36,22 @@ class GenomCore:
             "GGG": "Glycine"
         }
 
-    def validate_dna(self, sequence):
+    def _clean_sequence(self, sequence, label="sequence"):
+        if not isinstance(sequence, str):
+            raise TypeError(f"Invalid {label}: expected a string.")
         seq = "".join(sequence.split()).upper()
+        if not seq:
+            raise ValueError(f"Invalid {label}: sequence cannot be empty.")
+        return seq
+
+    def validate_dna(self, sequence):
+        seq = self._clean_sequence(sequence, "DNA sequence")
         if not set(seq).issubset(self.dna_bases):
             raise ValueError("Invalid DNA sequence. Only A, T, C, G allowed.")
         return seq
 
     def calculate_gc_content(self, sequence):
         seq = self.validate_dna(sequence)
-        if not seq: return 0.0
         gc = seq.count("G") + seq.count("C")
         return round((gc / len(seq)) * 100, 2)
 
@@ -46,13 +60,12 @@ class GenomCore:
         return seq.replace("T", "U")
 
     def translate_mrna(self, sequence):
-        seq = "".join(sequence.split()).upper()
+        seq = self._clean_sequence(sequence, "RNA sequence")
         if not set(seq).issubset(self.rna_bases):
             raise ValueError("Invalid RNA sequence.")
-        
         protein = []
         for i in range(0, len(seq) - 2, 3):
-            codon = seq[i:i+3]
+            codon = seq[i:i + 3]
             amino_acid = self.codon_table.get(codon, "Unknown")
             if amino_acid == "STOP":
                 break
@@ -64,7 +77,6 @@ class GenomCore:
         s2 = self.validate_dna(seq2)
         if len(s1) != len(s2):
             raise ValueError("Sequences must be the same length for comparison.")
-        
         mutations = 0
         for a, b in zip(s1, s2):
             if a != b:
@@ -75,31 +87,33 @@ class GenomCore:
             "similarity_%": round(((len(s1) - mutations) / len(s1)) * 100, 2)
         }
 
+
 # ============================================================
 # DEMONSTRATION
 # ============================================================
+
 if __name__ == "__main__":
     core = GenomCore()
-    print("="*50)
+    print("=" * 50)
     print(f"DESI∞ {core.name} v{core.version} Initialized")
-    print("="*50)
-    
-    # Example Patient DNA
+    print("=" * 50)
+
+    # Example demonstration DNA sequence
     dna = "ATGGACGAGACCATGAAGGAGTTGAAGGCCTACAAATCGGAAGAGCTGG"
-    
+
     print(f"\nDNA Sequence: {dna}")
     print(f"GC Content: {core.calculate_gc_content(dna)}%")
-    
+
     # Transcribe and Translate
     mrna = core.transcribe_dna_to_mrna(dna)
     protein = core.translate_mrna(mrna)
     print(f"\nmRNA: {mrna}")
     print(f"Protein: {protein}")
-    
+
     # Mutation comparison
     mutated_dna = "ATGGACGAGACCATGTAGGAGTTGAAGGCCTACAAATCGGAAGAGCTGG"
     comparison = core.compare_sequences(dna, mutated_dna)
-    print(f"\nMutation Analysis:")
+    print("\nMutation Analysis:")
     print(f"  Original length: {comparison['length']}")
     print(f"  Mutations found: {comparison['mutations']}")
     print(f"  Similarity: {comparison['similarity_%']}%")
