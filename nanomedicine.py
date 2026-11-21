@@ -1,7 +1,7 @@
-# ============================================================
-# DESI∞ INFINITY SYSTEM 6.2.0 - NEURAL HEART MODULE
-# Computational Cardiovascular Research
-# ============================================================
+# =====================================================================
+# DESI∞ INFINITY SYSTEM 6.2.0 - NANOMEDICINE MODULE
+# Computational Nanomedicine & Targeted Delivery Simulation
+# =====================================================================
 
 import math
 
@@ -12,129 +12,131 @@ except ImportError:
 
 
 def _is_real_number(value):
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    )
 
 
-class NeuralHeart:
+class Nanomedicine:
+    """Simulates targeted nanocarrier dosing, release kinetics, and safety bounds."""
+
     def __init__(self):
-        self.name = "NEURAL_HEART"
+        self.name = "NANOMEDICINE"
         self.version = SYSTEM_VERSION
 
-    def assess_signal_quality(self, samples, flatline_threshold=1e-5):
-        """
-        Evaluates the quality of a time-series signal (e.g., ECG).
-        Detects flatlines (disconnected sensors) and returns basic stats.
-        """
-        if not samples or not isinstance(samples, (list, tuple)):
-            raise ValueError("Samples must be a non-empty list or tuple.")
-        if not _is_real_number(flatline_threshold) or flatline_threshold < 0:
-            raise ValueError("flatline_threshold must be a non-negative finite number.")
-        if not all(_is_real_number(x) for x in samples):
-            raise TypeError("All samples must be finite numeric values.")
+    def plan_targeted_dose(
+        self,
+        tissue_mass_kg,
+        target_concentration_mg_per_kg,
+        encapsulation_efficiency=0.85,
+    ):
+        """Computes required payload mass and carrier dose for a target tissue."""
+        if not _is_real_number(tissue_mass_kg) or tissue_mass_kg <= 0:
+            raise ValueError("tissue_mass_kg must be a positive finite number.")
+        if (
+            not _is_real_number(target_concentration_mg_per_kg)
+            or target_concentration_mg_per_kg < 0
+        ):
+            raise ValueError(
+                "target_concentration_mg_per_kg must be a non-negative finite number."
+            )
+        if (
+            not _is_real_number(encapsulation_efficiency)
+            or encapsulation_efficiency <= 0
+            or encapsulation_efficiency > 1.0
+        ):
+            raise ValueError(
+                "encapsulation_efficiency must be a finite number in (0, 1]."
+            )
 
-        min_val = min(samples)
-        max_val = max(samples)
-        span = max_val - min_val
+        required_payload_mg = tissue_mass_kg * target_concentration_mg_per_kg
+        carrier_dose_mg = required_payload_mg / encapsulation_efficiency
 
-        if span < flatline_threshold:
+        return {
+            "status": "READY",
+            "required_payload_mg": round(required_payload_mg, 4),
+            "carrier_dose_mg": round(carrier_dose_mg, 4),
+            "encapsulation_efficiency": round(encapsulation_efficiency, 4),
+        }
+
+    def simulate_release_kinetics(
+        self,
+        initial_dose_mg,
+        release_rate_per_hr,
+        elapsed_hours,
+    ):
+        """Models first-order cumulative payload release over elapsed time."""
+        if not _is_real_number(initial_dose_mg) or initial_dose_mg < 0:
+            raise ValueError("initial_dose_mg must be a non-negative finite number.")
+        if not _is_real_number(release_rate_per_hr) or release_rate_per_hr < 0:
+            raise ValueError(
+                "release_rate_per_hr must be a non-negative finite number."
+            )
+        if not _is_real_number(elapsed_hours) or elapsed_hours < 0:
+            raise ValueError("elapsed_hours must be a non-negative finite number.")
+
+        fraction_released = 1.0 - math.exp(-release_rate_per_hr * elapsed_hours)
+        released_mg = initial_dose_mg * fraction_released
+        remaining_mg = max(0.0, initial_dose_mg - released_mg)
+
+        return {
+            "status": "SIMULATED",
+            "released_mg": round(released_mg, 4),
+            "remaining_mg": round(remaining_mg, 4),
+            "fraction_released": round(fraction_released, 4),
+        }
+
+    def check_payload_safety(self, dose_mg, max_safe_dose_mg):
+        """Checks whether a nanocarrier dose stays within the safe ceiling."""
+        if not _is_real_number(dose_mg) or dose_mg < 0:
+            raise ValueError("dose_mg must be a non-negative finite number.")
+        if not _is_real_number(max_safe_dose_mg) or max_safe_dose_mg <= 0:
+            raise ValueError("max_safe_dose_mg must be a positive finite number.")
+
+        if dose_mg > max_safe_dose_mg:
             return {
-                "status": "WARNING_FLATLINE",
-                "message": "Signal appears disconnected or flat.",
-                "span": span,
+                "status": "OVER_LIMIT_WARNING",
+                "message": "Nanocarrier dose exceeds maximum safe threshold.",
+                "utilization_ratio": round(dose_mg / max_safe_dose_mg, 4),
             }
 
-        mean_val = sum(samples) / len(samples)
         return {
-            "status": "VALID",
-            "message": "Signal quality acceptable.",
-            "mean": round(mean_val, 4),
-            "min": min_val,
-            "max": max_val,
+            "status": "SAFE",
+            "message": "Nanocarrier dose is within safe bounds.",
+            "utilization_ratio": round(dose_mg / max_safe_dose_mg, 4),
         }
 
-    def estimate_heart_rate(self, peak_indices, sampling_rate_hz):
-        """
-        Estimates heart rate (BPM) from the indices of detected peaks (R-peaks).
-        """
-        if not _is_real_number(sampling_rate_hz) or sampling_rate_hz <= 0:
-            raise ValueError("Sampling rate must be positive.")
-        if not isinstance(peak_indices, (list, tuple)) or len(peak_indices) < 2:
-            raise ValueError("At least two peaks are required to calculate a heart rate.")
-        if not all(isinstance(idx, int) and not isinstance(idx, bool) and idx >= 0 for idx in peak_indices):
-            raise TypeError("Peak indices must be non-negative integers.")
 
-        # Calculate the time intervals between peaks (RR intervals)
-        intervals_samples = []
-        for i in range(len(peak_indices) - 1):
-            interval = peak_indices[i + 1] - peak_indices[i]
-            if interval <= 0:
-                raise ValueError("Peak indices must be strictly increasing.")
-            intervals_samples.append(interval)
-
-        # Convert samples to seconds
-        intervals_seconds = [s / sampling_rate_hz for s in intervals_samples]
-
-        # Average interval
-        avg_interval = sum(intervals_seconds) / len(intervals_seconds)
-        if avg_interval <= 0:
-            raise ValueError("Average RR interval must be positive.")
-
-        # Calculate BPM (60 seconds / average interval)
-        bpm = 60.0 / avg_interval
-
-        return {
-            "bpm": round(bpm, 1),
-            "avg_rr_interval_sec": round(avg_interval, 3),
-            "total_beats_analyzed": len(peak_indices),
-        }
-
-    def check_heart_rate_safety(self, bpm):
-        """
-        Checks if the heart rate falls within normal resting bounds.
-        This is an educational simulation, not a medical diagnosis.
-        """
-        if not _is_real_number(bpm):
-            raise TypeError("bpm must be a finite numeric value.")
-
-        if bpm < 60:
-            return {"status": "BRADYCARDIA_WARNING", "message": "Heart rate is below 60 BPM."}
-        elif bpm > 100:
-            return {"status": "TACHYCARDIA_WARNING", "message": "Heart rate is above 100 BPM."}
-        else:
-            return {"status": "NORMAL", "message": "Heart rate is within normal resting bounds."}
-
-
-# ============================================================
+# =====================================================================
 # DEMONSTRATION
-# ============================================================
+# =====================================================================
 
 if __name__ == "__main__":
-    heart = NeuralHeart()
+    nano = Nanomedicine()
     print("=" * 50)
-    print(f"DESI∞ {heart.name} v{heart.version} Initialized")
+    print(f"DESI∞ {nano.name} v{nano.version} Initialized")
     print("=" * 50)
 
-    # 1. Test Signal Quality (Synthetic ECG data)
-    print("\n[1] Signal Quality Assessment:")
-    # Simulating a flatline (disconnected sensor)
-    flatline_signal = [0.0, 0.0, 0.0, 0.0, 0.0]
-    print(f"  Flatline Test: {heart.assess_signal_quality(flatline_signal)}")
+    plan = nano.plan_targeted_dose(
+        tissue_mass_kg=1.5,
+        target_concentration_mg_per_kg=2.0,
+        encapsulation_efficiency=0.8,
+    )
+    print("\n[1] Targeted Dose Plan:", plan)
 
-    # Simulating a valid signal
-    valid_signal = [0.1, 0.5, 1.2, 0.4, 0.1, 0.6, 1.1, 0.3]
-    print(f"  Valid Signal Test: {heart.assess_signal_quality(valid_signal)}")
+    kinetics = nano.simulate_release_kinetics(
+        initial_dose_mg=plan["carrier_dose_mg"],
+        release_rate_per_hr=0.25,
+        elapsed_hours=4.0,
+    )
+    print("\n[2] Release Kinetics:", kinetics)
 
-    # 2. Test Heart Rate Estimation
-    print("\n[2] Heart Rate Estimation:")
-    # Simulating peaks detected at sample index 100, 250, 400, 550 (at 100 Hz)
-    # The intervals are 150 samples (1.5 seconds) -> 40 BPM
-    peak_indices = [100, 250, 400, 550]
-    hr_result = heart.estimate_heart_rate(peak_indices, sampling_rate_hz=100)
-    print(f"  Peaks: {peak_indices} at 100 Hz")
-    print(f"  Result: {hr_result}")
+    safety = nano.check_payload_safety(
+        dose_mg=plan["carrier_dose_mg"],
+        max_safe_dose_mg=10.0,
+    )
+    print("\n[3] Safety Check:", safety)
 
-    # 3. Test Safety Bounds
-    print("\n[3] Safety Assessment:")
-    print(f"  Safety Check (40 BPM): {heart.check_heart_rate_safety(40)}")
-    print(f"  Safety Check (75 BPM): {heart.check_heart_rate_safety(75)}")
 
